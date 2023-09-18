@@ -469,6 +469,7 @@ func (s *Server) startNetworkListener(listener net.Listener, isUnixSocket bool, 
 
 		logutil.BgLogger().Debug("accept new connection success")
 
+		// 1. 创建客户端连接
 		clientConn := s.newConn(conn)
 		if isUnixSocket {
 			var (
@@ -513,6 +514,7 @@ func (s *Server) startNetworkListener(listener net.Listener, isUnixSocket bool, 
 			continue
 		}
 
+		// 处理客户端连接
 		go s.onConn(clientConn)
 	}
 }

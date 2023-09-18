@@ -1175,8 +1175,11 @@ func (a *ExecStmt) buildExecutor() (exec.Executor, error) {
 		ctx.GetSessionVars().StmtCtx.Priority = kv.PriorityLow
 	}
 
+	//////////////////////////////////////////////////////////
+	// 构建执行算子树
 	b := newExecutorBuilder(ctx, a.InfoSchema, a.Ti)
 	e := b.build(a.Plan)
+	//////////////////////////////////////////////////////////
 	if b.err != nil {
 		return nil, errors.Trace(b.err)
 	}

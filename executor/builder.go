@@ -159,6 +159,7 @@ func (b *MockExecutorBuilder) Build(p plannercore.Plan) exec.Executor {
 	return b.build(p)
 }
 
+// 构建执行算子树
 func (b *executorBuilder) build(p plannercore.Plan) exec.Executor {
 	switch v := p.(type) {
 	case nil:

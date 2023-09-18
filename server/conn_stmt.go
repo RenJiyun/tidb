@@ -132,6 +132,7 @@ func (cc *clientConn) HandleStmtPrepare(ctx context.Context, sql string) error {
 	return cc.flush(ctx)
 }
 
+// 处理 ComStmtExecute 命令: parser/mysql/const.go:124
 func (cc *clientConn) handleStmtExecute(ctx context.Context, data []byte) (err error) {
 	defer trace.StartRegion(ctx, "HandleStmtExecute").End()
 	if len(data) < 9 {

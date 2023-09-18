@@ -1014,6 +1014,7 @@ func tryWhereIn2BatchPointGet(ctx sessionctx.Context, selStmt *ast.SelectStmt) *
 // 2. It must be a single table select.
 // 3. All the columns must be public and not generated.
 // 4. The condition is an access path that the range is a unique key.
+// 也就是说, 只能获取一条数据
 func tryPointGetPlan(ctx sessionctx.Context, selStmt *ast.SelectStmt, check bool) *PointGetPlan {
 	if selStmt.Having != nil {
 		return nil

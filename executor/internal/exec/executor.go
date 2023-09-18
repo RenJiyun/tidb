@@ -39,12 +39,13 @@ import (
 //
 // In TiDB, all algebra operators are implemented as iterators, i.e., they
 // support a simple Open-Next-Close protocol. See this paper for more details:
-//
+// /////////////////////////////////////////////////////////////////////////////
 // "Volcano-An Extensible and Parallel Query Evaluation System"
-//
+// /////////////////////////////////////////////////////////////////////////////
 // Different from Volcano's execution model, a "Next" function call in TiDB will
 // return a batch of rows, other than a single row in Volcano.
 // NOTE: Executors must call "chk.Reset()" before appending their results to it.
+// #question: how to produce the Executor operator
 type Executor interface {
 	Base() *BaseExecutor
 	Open(context.Context) error
@@ -59,11 +60,13 @@ type Executor interface {
 var _ Executor = &BaseExecutor{}
 
 // BaseExecutor holds common information for executors.
+// 执行算子
 type BaseExecutor struct {
-	ctx           sessionctx.Context
-	AllocPool     chunk.Allocator
-	schema        *expression.Schema // output schema
-	runtimeStats  *execdetails.BasicRuntimeStats
+	ctx          sessionctx.Context
+	AllocPool    chunk.Allocator
+	schema       *expression.Schema // output schema
+	runtimeStats *execdetails.BasicRuntimeStats
+	// 子节点
 	children      []Executor
 	retFieldTypes []*types.FieldType
 	id            int

@@ -133,17 +133,23 @@ func newClientConn(s *Server) *clientConn {
 
 // clientConn represents a connection between server and client, it maintains connection specific state,
 // handles client query.
+// #question: where is the clientConn created? server/conn.go:119
 type clientConn struct {
-	pkt          *internal.PacketIO      // a helper to read and write data in packet format.
-	bufReadConn  *util2.BufferedReadConn // a buffered-read net.Conn or buffered-read tls.Conn.
-	tlsConn      *tls.Conn               // TLS connection, nil if not TLS.
-	server       *Server                 // a reference of server instance.
-	capability   uint32                  // client capability affects the way server handles client request.
-	connectionID uint64                  // atomically allocated by a global variable, unique in process scope.
-	user         string                  // user of the client.
-	dbname       string                  // default database name.
-	salt         []byte                  // random bytes used for authentication.
-	alloc        arena.Allocator         // an memory allocator for reducing memory allocation.
+	pkt *internal.PacketIO // a helper to read and write data in packet format.
+	// 包装了 net.Conn
+	bufReadConn *util2.BufferedReadConn // a buffered-read net.Conn or buffered-read tls.Conn.
+	tlsConn     *tls.Conn               // TLS connection, nil if not TLS.
+
+	//////////////////////////////////////////////////////////////////////////////////////////
+	server *Server // a reference of server instance.
+	//////////////////////////////////////////////////////////////////////////////////////////
+
+	capability   uint32          // client capability affects the way server handles client request.
+	connectionID uint64          // atomically allocated by a global variable, unique in process scope.
+	user         string          // user of the client.
+	dbname       string          // default database name.
+	salt         []byte          // random bytes used for authentication.
+	alloc        arena.Allocator // an memory allocator for reducing memory allocation.
 	chunkAlloc   chunk.Allocator
 	lastPacket   []byte // latest sql query string, currently used for logging error.
 	// ShowProcess() and mysql.ComChangeUser both visit this field, ShowProcess() read information through
@@ -1185,6 +1191,7 @@ func (cc *clientConn) addMetrics(cmd byte, startTime time.Time, err error) {
 // dispatch handles client request based on command which is the first byte of the data.
 // It also gets a token from server which is used to limit the concurrently handling clients.
 // The most frequently used command is ComQuery.
+// 这里涉及 MySQL 的通讯协议
 func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 	defer func() {
 		// reset killed for each request
@@ -1277,6 +1284,9 @@ func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 			return err
 		}
 		return cc.writeOK(ctx)
+
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// #question: 客户端跟集群的部署逻辑是?
 	case mysql.ComQuery: // Most frequently used command.
 		// For issue 1989
 		// Input payload may end with byte '\0', we didn't find related mysql document about it, but mysql
@@ -1287,6 +1297,8 @@ func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 			dataStr = string(hack.String(data))
 		}
 		return cc.handleQuery(ctx, dataStr)
+	////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 	case mysql.ComFieldList:
 		return cc.handleFieldList(ctx, dataStr)
 	// ComCreateDB, ComDropDB
@@ -1312,8 +1324,12 @@ func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 			dataStr = string(hack.String(data))
 		}
 		return cc.HandleStmtPrepare(ctx, dataStr)
+
+	//////////////////////////////////////////////////////////////////
 	case mysql.ComStmtExecute:
 		return cc.handleStmtExecute(ctx, data)
+	//////////////////////////////////////////////////////////////////
+
 	case mysql.ComStmtSendLongData:
 		return cc.handleStmtSendLongData(data)
 	case mysql.ComStmtClose:
@@ -1724,6 +1740,7 @@ func (cc *clientConn) audit(eventType plugin.GeneralEvent) {
 // handleQuery executes the sql query string and writes result set or result ok to the client.
 // As the execution time of this function represents the performance of TiDB, we do time log and metrics here.
 // Some special queries like `load data` that does not return result, which is handled in handleFileTransInConn.
+// 处理 ComQuery 命令: parser/mysql/const.go:104
 func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 	defer trace.StartRegion(ctx, "handleQuery").End()
 	sessVars := cc.ctx.GetSessionVars()
@@ -1731,6 +1748,8 @@ func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 	prevWarns := sc.GetWarnings()
 	var stmts []ast.StmtNode
 	cc.ctx.GetSessionVars().SetAlloc(cc.chunkAlloc)
+
+	// 1. 解析 SQL 语句
 	if stmts, err = cc.ctx.Parse(ctx, sql); err != nil {
 		cc.onExtensionSQLParseFailed(sql, err)
 		return err
@@ -1799,6 +1818,8 @@ func (cc *clientConn) handleQuery(ctx context.Context, sql string) (err error) {
 			// Save the point plan in Session, so we don't need to build the point plan again.
 			cc.ctx.SetValue(plannercore.PointPlanKey, plannercore.PointPlanVal{Plan: pointPlans[i]})
 		}
+
+		// 2. 处理 statement
 		retryable, err = cc.handleStmt(ctx, stmt, parserWarns, i == len(stmts)-1)
 		if err != nil {
 			action, txnErr := sessiontxn.GetTxnManager(&cc.ctx).OnStmtErrorForNextAction(ctx, sessiontxn.StmtErrAfterQuery, err)
@@ -2003,6 +2024,7 @@ func (cc *clientConn) prefetchPointPlanKeys(ctx context.Context, stmts []ast.Stm
 
 // The first return value indicates whether the call of handleStmt has no side effect and can be retried.
 // Currently, the first return value is used to fall back to TiKV when TiFlash is down.
+// #question: TiKV 和 TiFlash 之间的区别
 func (cc *clientConn) handleStmt(ctx context.Context, stmt ast.StmtNode, warns []stmtctx.SQLWarn, lastStmt bool) (bool, error) {
 	ctx = context.WithValue(ctx, execdetails.StmtExecDetailKey, &execdetails.StmtExecDetails{})
 	ctx = context.WithValue(ctx, util.ExecDetailsKey, &util.ExecDetails{})

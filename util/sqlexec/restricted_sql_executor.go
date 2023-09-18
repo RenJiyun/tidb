@@ -195,6 +195,7 @@ type RecordSet interface {
 	Fields() []*ast.ResultField
 
 	// Next reads records into chunk.
+	// 该方法将驱动执行算子执行 (采用火山模型)
 	Next(ctx context.Context, req *chunk.Chunk) error
 
 	// NewChunk create a chunk, if allocator is nil, the default one is used.

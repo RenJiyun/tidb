@@ -220,6 +220,7 @@ func Optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 			// point plan is already tried in a multi-statement query.
 			fp = fpv.Plan
 		} else {
+			// use the PointGetPlan strategy
 			fp = core.TryFastPlan(sctx, node)
 		}
 		if fp != nil {
@@ -343,6 +344,7 @@ func Optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 		core.DebugTraceBestBinding(sctx, chosenBinding.Hint)
 	}
 	// No plan found from the bindings, or the bindings are ignored.
+	// #question: what is binding?
 	if bestPlan == nil {
 		sessVars.StmtCtx.StmtHints = originStmtHints
 		bestPlan, names, _, err = optimize(ctx, sctx, node, is)
@@ -487,7 +489,12 @@ func optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 	builder := planBuilderPool.Get().(*core.PlanBuilder)
 	defer planBuilderPool.Put(builder.ResetForReuse())
 	builder.Init(sctx, is, hintProcessor)
+
+	///////////////////////////////////////////////////////////////
+	// 构建逻辑执行计划
 	p, err := buildLogicalPlan(ctx, sctx, node, builder)
+	///////////////////////////////////////////////////////////////
+
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -516,12 +523,14 @@ func optimize(ctx context.Context, sctx sessionctx.Context, node ast.Node, is in
 	}
 
 	// Handle the logical plan statement, use cascades planner if enabled.
+	// #question: what is cascades planner?
 	if sessVars.GetEnableCascadesPlanner() {
 		finalPlan, cost, err := cascades.DefaultOptimizer.FindBestPlan(sctx, logic)
 		return finalPlan, names, cost, err
 	}
 
 	beginOpt := time.Now()
+	// #question: 是否存在一些重写逻辑?
 	finalPlan, cost, err := core.DoOptimize(ctx, sctx, builder.GetOptFlag(), logic)
 	// TODO: capture plan replayer here if it matches sql and plan digest
 
@@ -567,7 +576,10 @@ func buildLogicalPlan(ctx context.Context, sctx sessionctx.Context, node ast.Nod
 	// reset fields about rewrite
 	sctx.GetSessionVars().RewritePhaseInfo.Reset()
 	beginRewrite := time.Now()
+	///////////////////////////////////////////////////////
+	// 构建最基本的逻辑执行计划
 	p, err := builder.Build(ctx, node)
+	///////////////////////////////////////////////////////
 	if err != nil {
 		return nil, err
 	}

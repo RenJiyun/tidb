@@ -811,6 +811,8 @@ func (b *PlanBuilder) ResetForReuse() *PlanBuilder {
 }
 
 // Build builds the ast node to a Plan.
+// pattern: node visitor
+// #question: 语法树构建的入口
 func (b *PlanBuilder) Build(ctx context.Context, node ast.Node) (Plan, error) {
 	b.optFlag |= flagPrunColumns
 	switch x := node.(type) {
