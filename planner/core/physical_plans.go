@@ -119,6 +119,7 @@ func (r ReadReqType) Name() string {
 }
 
 // PhysicalTableReader is the table reader in tidb.
+// 需要跟底层的存储机制交互
 type PhysicalTableReader struct {
 	physicalSchemaProducer
 
@@ -127,6 +128,7 @@ type PhysicalTableReader struct {
 	tablePlan  PhysicalPlan
 
 	// StoreType indicates table read from which type of store.
+	// 存储类型
 	StoreType kv.StoreType
 
 	// ReadReqType is the read request type for current physical table reader, there are 3 kinds of read request: Cop,
@@ -2013,6 +2015,7 @@ func (p *PhysicalStreamAgg) MemoryUsage() (sum int64) {
 type PhysicalSort struct {
 	basePhysicalPlan
 
+	// sort 字段
 	ByItems []*util.ByItems
 	// whether this operator only need to sort the data of one partition.
 	// it is true only if it is used to sort the sharded data of the window function.

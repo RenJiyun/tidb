@@ -60,13 +60,13 @@ type Executor interface {
 var _ Executor = &BaseExecutor{}
 
 // BaseExecutor holds common information for executors.
-// 执行算子
+// 执行算子基类
 type BaseExecutor struct {
 	ctx          sessionctx.Context
 	AllocPool    chunk.Allocator
 	schema       *expression.Schema // output schema
 	runtimeStats *execdetails.BasicRuntimeStats
-	// 子节点
+	// 子执行算子
 	children      []Executor
 	retFieldTypes []*types.FieldType
 	id            int
@@ -283,7 +283,10 @@ func Next(ctx context.Context, e Executor, req *chunk.Chunk) error {
 	if topsqlstate.TopSQLEnabled() && sessVars.StmtCtx.IsSQLAndPlanRegistered.CompareAndSwap(false, true) {
 		RegisterSQLAndPlanInExecForTopSQL(sessVars)
 	}
+
+	////////////////////////////////////////////
 	err := e.Next(ctx, req)
+	////////////////////////////////////////////
 
 	if err != nil {
 		return err

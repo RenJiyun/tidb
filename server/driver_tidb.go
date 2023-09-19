@@ -41,6 +41,7 @@ import (
 )
 
 // TiDBDriver implements IDriver.
+// #question: 他们本身是内部有一套接口吗?
 type TiDBDriver struct {
 	store kv.Storage
 }
@@ -280,9 +281,11 @@ func (tc *TiDBContext) checkSandBoxMode(stmt ast.StmtNode) error {
 }
 
 // ExecuteStmt implements QueryCtx interface.
+// #question: QueryCtx does not exist
 func (tc *TiDBContext) ExecuteStmt(ctx context.Context, stmt ast.StmtNode) (resultset.ResultSet, error) {
 	var rs sqlexec.RecordSet
 	var err error
+	// #question: What is sandBoxMode?
 	if err = tc.checkSandBoxMode(stmt); err != nil {
 		return nil, err
 	}

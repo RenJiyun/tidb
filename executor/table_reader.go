@@ -138,6 +138,7 @@ func (e *TableReaderExecutor) setDummy() {
 	e.dummy = true
 }
 
+// #question: TableReaderExecutor 跟 KV 层的交互机制
 // Open initializes necessary variables for using this executor.
 func (e *TableReaderExecutor) Open(ctx context.Context) error {
 	r, ctx := tracing.StartRegionEx(ctx, "TableReaderExecutor.Open")

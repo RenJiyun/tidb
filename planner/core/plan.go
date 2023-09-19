@@ -528,6 +528,8 @@ type basePhysicalPlan struct {
 
 	childrenReqProps []*property.PhysicalProperty
 	self             PhysicalPlan
+	
+	// 子节点, 在数据流向上看, 则是数据上游
 	children         []PhysicalPlan
 
 	// used by the new cost interface

@@ -154,6 +154,7 @@ type clientConn struct {
 	lastPacket   []byte // latest sql query string, currently used for logging error.
 	// ShowProcess() and mysql.ComChangeUser both visit this field, ShowProcess() read information through
 	// the TiDBContext and mysql.ComChangeUser re-create it, so a lock is required here.
+	// #question: here is a grammer problem for me
 	ctx struct {
 		sync.RWMutex
 		*TiDBContext // an interface to execute sql statements.
@@ -1296,7 +1297,7 @@ func (cc *clientConn) dispatch(ctx context.Context, data []byte) error {
 			data = data[:len(data)-1]
 			dataStr = string(hack.String(data))
 		}
-		return cc.handleQuery(ctx, dataStr)
+		return cc.handleQuery(ctx, dataStr) // dataStr is sql
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	case mysql.ComFieldList:
@@ -2030,7 +2031,10 @@ func (cc *clientConn) handleStmt(ctx context.Context, stmt ast.StmtNode, warns [
 	ctx = context.WithValue(ctx, util.ExecDetailsKey, &util.ExecDetails{})
 	reg := trace.StartRegion(ctx, "ExecuteStmt")
 	cc.audit(plugin.Starting)
+	//////////////////////////////////////////////////
+	// 1. 组装执行算子
 	rs, err := cc.ctx.ExecuteStmt(ctx, stmt)
+	//////////////////////////////////////////////////
 	reg.End()
 	// - If rs is not nil, the statement tracker detachment from session tracker
 	//   is done in the `rs.Close` in most cases.
@@ -2060,9 +2064,12 @@ func (cc *clientConn) handleStmt(ctx context.Context, stmt ast.StmtNode, warns [
 		if cc.getStatus() == connStatusShutdown {
 			return false, exeerrors.ErrQueryInterrupted
 		}
+		///////////////////////////////////////////////////////////////////////////////////////////
+		// 2. 填充 ResultSet 的时候, 才会真正驱动 Executor.Next() 的执行
 		if retryable, err := cc.writeResultSet(ctx, rs, false, status, 0); err != nil {
 			return retryable, err
 		}
+		///////////////////////////////////////////////////////////////////////////////////////////
 		return false, nil
 	}
 
@@ -2192,9 +2199,13 @@ func (cc *clientConn) writeResultSet(ctx context.Context, rs resultset.ResultSet
 		}
 		return false, cc.flush(ctx)
 	}
+
+	/////////////////////////////////////////////////////////////////////////////////////////
+	// 获取数据并将数据写往客户端
 	if retryable, err := cc.writeChunks(ctx, rs, binary, serverStatus); err != nil {
 		return retryable, err
 	}
+	/////////////////////////////////////////////////////////////////////////////////////////
 
 	return false, cc.flush(ctx)
 }
@@ -2249,6 +2260,7 @@ func (cc *clientConn) writeChunks(ctx context.Context, rs resultset.ResultSet, b
 			}
 		})
 		// Here server.tidbResultSet implements Next method.
+		// #question: What is the first result returned by Next()?
 		err := rs.Next(ctx, req)
 		if err != nil {
 			return firstNext, err
@@ -2280,6 +2292,8 @@ func (cc *clientConn) writeChunks(ctx context.Context, rs resultset.ResultSet, b
 		}
 		validNextCount++
 		firstNext = false
+
+		// 将数据写往客户端连接
 		reg := trace.StartRegion(ctx, "WriteClientConn")
 		if stmtDetail != nil {
 			start = time.Now()

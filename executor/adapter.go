@@ -152,6 +152,7 @@ func (a *recordSet) Next(ctx context.Context, req *chunk.Chunk) (err error) {
 		logutil.Logger(ctx).Error("execute sql panic", zap.String("sql", a.stmt.GetTextToLog(false)), zap.Stack("stack"))
 	}()
 
+	// 驱动执行 Executor.Next()
 	err = a.stmt.next(ctx, a.executor, req)
 	if err != nil {
 		a.lastErr = err
@@ -524,10 +525,14 @@ func (a *ExecStmt) Exec(ctx context.Context) (_ sqlexec.RecordSet, err error) {
 		sctx.GetSessionVars().MemTracker.SetBytesLimit(sctx.GetSessionVars().StmtCtx.MemQuotaQuery)
 	}
 
+	/////////////////////////////////////////////////////////////////////////////
+	// 1. 构建 Executor 算子树
 	e, err := a.buildExecutor()
 	if err != nil {
 		return nil, err
 	}
+	/////////////////////////////////////////////////////////////////////////////
+
 	// ExecuteExec will rewrite `a.Plan`, so set plan label should be executed after `a.buildExecutor`.
 	ctx = a.observeStmtBeginForTopSQL(ctx)
 	if variable.EnableResourceControl.Load() && domain.GetDomain(sctx).RunawayManager() != nil {
@@ -541,10 +546,14 @@ func (a *ExecStmt) Exec(ctx context.Context) (_ sqlexec.RecordSet, err error) {
 	}
 
 	breakpoint.Inject(a.Ctx, sessiontxn.BreakPointBeforeExecutorFirstRun)
+	
+	///////////////////////////////////////////////////////////////////////////////
+	// 2. open it
 	if err = a.openExecutor(ctx, e); err != nil {
 		terror.Call(e.Close)
 		return nil, err
 	}
+	///////////////////////////////////////////////////////////////////////////////
 
 	cmd32 := atomic.LoadUint32(&sctx.GetSessionVars().CommandValue)
 	cmd := byte(cmd32)

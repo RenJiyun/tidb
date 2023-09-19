@@ -2184,6 +2184,7 @@ func (s *session) ExecuteStmt(ctx context.Context, stmtNode ast.StmtNode) (sqlex
 		return nil, err
 	}
 
+	// #question: failpoint 机制
 	failpoint.Inject("mockStmtSlow", func(val failpoint.Value) {
 		if strings.Contains(stmtNode.Text(), "/* sleep */") {
 			v, _ := val.(int)
@@ -2207,7 +2208,8 @@ func (s *session) ExecuteStmt(ctx context.Context, stmtNode ast.StmtNode) (sqlex
 	originalResourceGroup := s.GetSessionVars().ResourceGroupName
 
 	///////////////////////////////////////////////////////////////////////////////////////////
-	// Transform abstract syntax tree to a physical plan(stored in executor.ExecStmt).
+	// 1. Transform abstract syntax tree to a physical plan(stored in executor.ExecStmt).
+	// 这里尚未生成 Executor 执行算子树
 	compiler := executor.Compiler{Ctx: s}
 	stmt, err := compiler.Compile(ctx, stmtNode)
 	///////////////////////////////////////////////////////////////////////////////////////////
@@ -2263,7 +2265,7 @@ func (s *session) ExecuteStmt(ctx context.Context, stmtNode ast.StmtNode) (sqlex
 		}
 	}
 
-	// Execute the physical plan.
+	// 2. Execute the physical plan.
 	logStmt(stmt, s)
 
 	var recordSet sqlexec.RecordSet

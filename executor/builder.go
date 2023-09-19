@@ -787,6 +787,7 @@ func (b *executorBuilder) buildSelectLock(v *plannercore.PhysicalLock) exec.Exec
 }
 
 func (b *executorBuilder) buildLimit(v *plannercore.PhysicalLimit) exec.Executor {
+	// 构建子执行算子
 	childExec := b.build(v.Children()[0])
 	if b.err != nil {
 		return nil

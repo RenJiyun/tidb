@@ -32,6 +32,7 @@ var msgErrSelNotNil = "The selection vector of Chunk is not nil. Please file a b
 // When the chunk is done processing, we can reuse the allocated memory by resetting it.
 //
 // All Chunk's API should not do the validation work, and the user should ensure it is used correctly.
+// 用于执行算子之间交换数据
 type Chunk struct {
 	// sel indicates which rows are selected.
 	// If it is nil, all rows are selected.
