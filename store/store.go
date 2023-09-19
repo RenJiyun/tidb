@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// all storages
 var stores = make(map[string]kv.Driver)
 var storesLock sync.RWMutex
 

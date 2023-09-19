@@ -109,6 +109,7 @@ type TiKVDriver struct {
 
 // Open opens or creates an TiKV storage with given path using global config.
 // Path example: tikv://etcd-node1:port,etcd-node2:port?cluster=1&disableGC=false
+// #question: tikv 自身通过 etcd 形成一个集群
 func (d TiKVDriver) Open(path string) (kv.Storage, error) {
 	return d.OpenWithOptions(path)
 }

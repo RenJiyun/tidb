@@ -318,6 +318,7 @@ func setCPUAffinity() {
 }
 
 func registerStores() {
+	// #question: 存储层集成机制
 	err := kvstore.Register("tikv", driver.TiKVDriver{})
 	terror.MustNil(err)
 	err = kvstore.Register("mocktikv", mockstore.MockTiKVDriver{})
